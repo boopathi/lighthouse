@@ -54,7 +54,14 @@ document.addEventListener('DOMContentLoaded', _ => {
       background.createPageAndPopulate(results);
     })
     .catch(err => {
-      feedbackEl.textContent = err.message;
+      if (err.position === 'attachDebugger') {
+        feedbackEl.textContent = `
+          You probably have your devtools open.
+          Close devtools to use lighthouse.
+        `;
+      } else {
+        feedbackEl.textContent = err.message;
+      }
       stopSpinner();
     });
   });

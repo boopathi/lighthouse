@@ -166,6 +166,7 @@ class ExtensionDriver extends Driver {
     return new Promise((resolve, reject) => {
       chrome.debugger.attach({tabId}, '1.1', _ => {
         if (chrome.runtime.lastError) {
+          chrome.runtime.lastError.position = 'attachDebugger';
           return reject(chrome.runtime.lastError);
         }
         this._debuggerConnected = true;
