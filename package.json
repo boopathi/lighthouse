@@ -41,7 +41,8 @@
     "meow": "^3.7.0",
     "npmlog": "^2.0.3",
     "semver": "^5.1.0",
-    "speedline": "^0.1.2"
+    "speedline": "^0.1.2",
+    "through2": "^2.0.1"
   },
   "devDependencies": {
     "eslint": "^2.4.0",
