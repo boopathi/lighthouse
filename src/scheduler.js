@@ -95,10 +95,12 @@ function flattenArtifacts(artifacts) {
   }, {});
 }
 
-function saveArtifacts(artifacts) {
-  const artifactsFilename = 'artifacts.log';
-  fs.writeFileSync(artifactsFilename, JSON.stringify(artifacts));
-  log.log('info', 'artifacts file saved to disk', artifactsFilename);
+function saveArtifacts(artifacts, filename) {
+  if (typeof filename !== 'string') {
+    filename = 'artifacts.log';
+  }
+  fs.writeFileSync(filename, JSON.stringify(artifacts));
+  log.log('info', 'artifacts file saved to disk', filename);
 }
 
 function saveAssets(tracingData, url) {
@@ -160,7 +162,7 @@ function run(gatherers, options) {
       const artifacts = flattenArtifacts(unflattenedArtifacts);
 
       if (options.flags.saveArtifacts) {
-        saveArtifacts(artifacts);
+        saveArtifacts(artifacts, options.flags.saveArtifacts);
       }
 
       return artifacts;
