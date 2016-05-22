@@ -2,6 +2,7 @@ const child_process = require('child_process');
 const fs = require('fs');
 const osxchrome = require('./osx-chrome');
 const inquirer = require('inquirer');
+const net = require('net');
 
 const spawn = child_process.spawn;
 const execSync = child_process.execSync;
@@ -36,10 +37,8 @@ class Launcher {
     // instances
     this.chromeInstances = [];
 
-    this.destroyTmp = this.destroyTmp.bind(this);
     process.on('SIGINT', () => {
       this.kill();
-      this.destroyTmp();
     });
 
     this.flags = [
@@ -64,25 +63,28 @@ class Launcher {
             stdio: ['ignore', this.outFile, this.errFile]
           }
         );
-        fs.writeSync(this.pidFile, chrome.pid.toString());
-        chrome.on('exit', _ => {
-          chrome.kill();
-          this.destroyTmp();
-        });
         this.chromeInstances.push(chrome);
 
-        console.log('chrome running with pid = ', chrome.pid);
-        return new Promise(resolve => {
-          let nMessages =  0;
-          process.nextTick(_ => {
-            if (nMessages === 0) {
-              chrome.unref();
-              resolve(chrome.pid);
-            }
-            nMessages++;
-          });
+        fs.writeSync(this.pidFile, chrome.pid.toString());
+
+        chrome.on('exit', _ => {
+          this.kill();
         });
+
+        chrome.unref();
+
+        console.log('chrome running with pid = ', chrome.pid);
+        return this.poll(0).then(_ => chrome.pid);
       });
+  }
+
+  poll(retries) {
+    return new Promise((resolve, reject) => {
+      if (retries > 10) return reject(new Error('Polling stopped'));
+      const client = net.createConnection(9222);
+      client.on('error', poll(retries + 1));
+      client.on('connect', resolve);
+    });
   }
 
   spawnLinux() {
@@ -94,10 +96,11 @@ class Launcher {
     this.chromeInstances.forEach(chrome => {
       chrome.kill();
     });
+    process.nextTick(_ => this.destroyTmp());
   }
   destroyTmp() {
     console.log(`Removing TMPDIR: ${this.TMP_PROFILE_DIR}`);
-    execSync(`rm -r ${this.TMP_PROFILE_DIR}`);
+    execSync(`rm -rf ${this.TMP_PROFILE_DIR}`);
   }
 
   inquire(arr) {
