@@ -23,6 +23,7 @@ const log = require('../src/lib/log.js');
 const semver = require('semver');
 const Printer = require('./printer');
 
+const chromeLauncher = require('./chrome-launcher');
 const lighthouse = require('../');
 
 // node 5.x required due to use of ES2015 features
@@ -77,20 +78,34 @@ if (cli.flags.verbose) {
   flags.logLevel = 'error';
 }
 
+function run(retries) {
+  return lighthouse(url, flags)
+    .then(results => {
+      return Printer.write(results, outputMode, outputPath);
+    })
+    .then(status => {
+      outputPath !== 'stdout' && log.info('printer', status);
+    })
+    .catch(err => {
+      if (err.code === 'ECONNREFUSED') {
+        if (retries > 0) {
+          console.error('Unable to Connect to chrome remote debugger.');
+        } else {
+          console.log('Starting Chrome...');
+          return chromeLauncher
+            .run()
+            .then(() => {
+              console.log('Attempting to run again...');
+              return run(retries + 1);
+            })
+            .then(() => chromeLauncher.kill());
+        }
+      } else {
+        console.error('Runtime error encountered:', err);
+        console.error(err.stack);
+      }
+    });
+}
+
 // kick off a lighthouse run
-lighthouse(url, flags)
-  .then(results => {
-    return Printer.write(results, outputMode, outputPath);
-  })
-  .then(status => {
-    outputPath !== 'stdout' && log.info('printer', status);
-  })
-  .catch(err => {
-    if (err.code === 'ECONNREFUSED') {
-      console.error('Unable to connect to Chrome. Did you run ./launch-chrome.sh?');
-    } else {
-      console.error('Runtime error encountered:', err);
-      console.error(err.stack);
-    }
-    process.exit(1);
-  });
+run(0);

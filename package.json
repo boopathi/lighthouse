@@ -37,6 +37,7 @@
     "empty-module": "0.0.2",
     "gl-matrix": "2.3.2",
     "handlebars": "^4.0.5",
+    "inquirer": "^1.0.2",
     "jszip": "2.6.0",
     "meow": "^3.7.0",
     "npmlog": "^2.0.3",
