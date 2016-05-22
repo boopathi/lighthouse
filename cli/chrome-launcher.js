@@ -37,10 +37,6 @@ class Launcher {
     // instances
     this.chromeInstances = [];
 
-    process.on('SIGINT', () => {
-      this.kill();
-    });
-
     this.flags = [
       '--remote-debugging-port=9222',
       '--no-first-run',
@@ -71,19 +67,28 @@ class Launcher {
           this.kill();
         });
 
-        chrome.unref();
-
         console.log('chrome running with pid = ', chrome.pid);
         return this.poll(0).then(_ => chrome.pid);
       });
   }
 
   poll(retries) {
+    console.log('Polling', retries);
     return new Promise((resolve, reject) => {
-      if (retries > 10) return reject(new Error('Polling stopped'));
       const client = net.createConnection(9222);
-      client.on('error', poll(retries + 1));
-      client.on('connect', resolve);
+      let rejected = false;
+      client.on('error', _ => {
+        if (rejected) return;
+        rejected = true;
+        reject();
+      });
+      client.on('connection', resolve);
+    })
+    .catch(err => {
+      if (retries > 10) return Promise.reject(err);
+      return new Promise(resolve => {
+        setTimeout(_ => this.poll(retries + 1), 1000);
+      });
     });
   }
 
@@ -100,7 +105,7 @@ class Launcher {
   }
   destroyTmp() {
     console.log(`Removing TMPDIR: ${this.TMP_PROFILE_DIR}`);
-    execSync(`rm -rf ${this.TMP_PROFILE_DIR}`);
+    execSync(`rm -r ${this.TMP_PROFILE_DIR}`);
   }
 
   inquire(arr) {
