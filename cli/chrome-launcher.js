@@ -3,6 +3,7 @@ const fs = require('fs');
 const osxchrome = require('./osx-chrome');
 const inquirer = require('inquirer');
 const net = require('net');
+const rimraf = require('rimraf');
 
 const spawn = child_process.spawn;
 const execSync = child_process.execSync;
@@ -64,10 +65,6 @@ class Launcher {
 
         fs.writeSync(this.pidFile, chrome.pid.toString());
 
-        chrome.on('exit', _ => {
-          this.kill();
-        });
-
         console.log('chrome running with pid = ', chrome.pid);
         return this.poll(0).then(_ => chrome.pid);
       });
@@ -86,11 +83,11 @@ class Launcher {
   connect() {
     return new Promise((resolve, reject) => {
       const client = net.createConnection(9222);
-      client.on('error', err => {
+      client.once('error', err => {
         this.cleanup(client);
         reject(err);
       });
-      client.on('connect', _ => {
+      client.once('connect', _ => {
         this.cleanup(client);
         resolve();
       });
@@ -115,13 +112,15 @@ class Launcher {
   kill() {
     console.log('Killing all Chrome Instances');
     this.chromeInstances.forEach(chrome => {
+      // chrome.unref();
       chrome.kill();
+      chrome.on('exit', () => this.destroyTmp());
     });
-    process.nextTick(_ => this.destroyTmp());
   }
+
   destroyTmp() {
     console.log(`Removing TMPDIR: ${this.TMP_PROFILE_DIR}`);
-    execSync(`rm -r ${this.TMP_PROFILE_DIR}`);
+    rimraf.sync(this.TMP_PROFILE_DIR);
   }
 
   inquire(arr) {
