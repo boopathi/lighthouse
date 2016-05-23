@@ -40,7 +40,8 @@ class Launcher {
     this.flags = [
       '--remote-debugging-port=9222',
       '--no-first-run',
-      `--user-data-dir=${this.TMP_PROFILE_DIR}`
+      `--user-data-dir=${this.TMP_PROFILE_DIR}`,
+      `--primordial-pipe-token=READY`
     ];
 
     console.log(`created ${this.TMP_PROFILE_DIR}`);
@@ -72,24 +73,39 @@ class Launcher {
       });
   }
 
-  poll(retries) {
-    console.log('Polling', retries);
+  cleanup(client) {
+    if (client) {
+      client.removeAllListeners('connect');
+      client.removeAllListeners('error');
+      client.end();
+      client.destroy();
+      client.unref();
+    }
+  }
+
+  connect() {
     return new Promise((resolve, reject) => {
       const client = net.createConnection(9222);
-      let rejected = false;
-      client.on('error', _ => {
-        if (rejected) return;
-        rejected = true;
-        reject();
+      client.on('error', err => {
+        this.cleanup(client);
+        reject(err);
       });
-      client.on('connection', resolve);
-    })
-    .catch(err => {
-      if (retries > 10) return Promise.reject(err);
-      return new Promise(resolve => {
-        setTimeout(_ => this.poll(retries + 1), 1000);
+      client.on('connect', _ => {
+        this.cleanup(client);
+        resolve();
       });
     });
+  }
+
+  poll(retries, lastError) {
+    console.log('polling ', retries);
+    if (retries > 10) return Promise.reject(lastError);
+    return this
+      .connect()
+      .catch(err => {
+        return new Promise(resolve => setTimeout(resolve, 100))
+          .then(_ => this.poll(retries+1, err));
+      });
   }
 
   spawnLinux() {
