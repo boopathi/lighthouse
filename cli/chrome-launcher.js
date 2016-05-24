@@ -50,7 +50,21 @@ class Launcher {
   spawnOsx() {
     return osxchrome
       .getChrome()
-      .then(installations => this.head ? installations[0] : this.inquire(installations))
+      .then(installations => {
+        switch (true) {
+          case installations.length < 1:
+          return Promise.reject(new Error('No Chrome Installations Found'));
+
+          case installations.length === 1:
+          return installations[0];
+
+          case this.head:
+          return installations[0];
+
+          default:
+          return this.inquire(installations);
+        }
+      })
       .then(chromePath => {
         const chromeExecPath = chromePath + this.osxExecPath;
         const chrome = spawn(
